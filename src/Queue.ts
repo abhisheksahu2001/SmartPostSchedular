@@ -1,12 +1,9 @@
 import Redis from 'ioredis';
-import RedisUrl from '../config/redis'
 import { Queue, Worker, Job, } from 'bullmq';
+import { QueueItem } from './app';
+import { postQueueData } from './api/service';
 // import ioredis from 'ioredis'
-interface Post {
-    _id: string;
-    caption: string;
-    time: string;
-}
+
 // const connection = new ioredis(`redis://${RedisUrl}`);
 const redisOptions = {
     host: 'localhost', // or the IP address of your WSL instance
@@ -14,24 +11,23 @@ const redisOptions = {
 };
 
 const connection = new Redis(redisOptions);
-const PostQueue = new Queue<Post>('PostQueue', {
+const PostQueue = new Queue<QueueItem>('PostQueue', {
     connection
 
 })
 
-const processScheduledPost = async (job: Job<Post>) => {
+const processScheduledPost = async (job: Job<QueueItem>) => {
     try {
-
-        console.log(job.data);
+        await postQueueData(job.data.key);
     } catch (error: any) {
         console.error(`Error posting ${job.id} to social media:`, error.message);
     }
 };
 
-const worker = new Worker<Post>('PostQueue', processScheduledPost);
+const worker = new Worker<QueueItem>('PostQueue', processScheduledPost);
 
 // Add a job to the queue
-export const addJobToQueue = async (post: Post) => {
+export const addJobToQueue = async (post: QueueItem) => {
     try {
         const now = Date.now();
         const delay = new Date(post.time).getTime() - now;
@@ -42,6 +38,6 @@ export const addJobToQueue = async (post: Post) => {
 
         console.log(`Job added for post ${post.time}`);
     } catch (error) {
-        console.error(`Error adding job for post ${post._id}: ${error}`);
+        console.error(`Error adding job for post ${post.key}: ${error}`);
     }
 };
